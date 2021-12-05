@@ -1,0 +1,41 @@
+# I don't think the v2.0.0 rewrite in rust was the right direction as it is
+# not a 1:1 replacement but comes with a huge feuture creep. But what do I know...
+#
+
+FROM alpine:3.15.0 as builder
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+RUN set -xe; \
+    apk add --no-cache \
+    build-base \
+    git \
+    rustup \
+    openssl-libs-static \
+    openssl-dev \
+    libssl1.1 \
+    perl \
+    ;
+
+RUN set -xe; \
+    /usr/bin/rustup-init -q -y; \
+    source $HOME/.cargo/env;
+
+# This Dockerfile works with the rust-based version 2 of noalbs
+ARG NOALBS_VERSION=v2.2.0
+RUN set -xe; \
+    git clone https://github.com/715209/nginx-obs-automatic-low-bitrate-switching /app; \
+    cd /app; \
+    git checkout $NOALBS_VERSION; \
+    source $HOME/.cargo/env; \
+    cargo build --release;
+
+FROM alpine:3.15.0
+ENV PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+COPY --from=builder /app/target/release/noalbs /usr/local/bin/
+
+EXPOSE 5000/udp 8181/tcp 8282/udp
+
+WORKDIR /app
+
+ENTRYPOINT ["/usr/local/bin/noalbs"]
